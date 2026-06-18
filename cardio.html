@@ -7,6 +7,7 @@
 <meta name="theme-color" content="#050506">
 <title>Cardio · Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
 <style>
@@ -219,6 +220,15 @@ textarea.field-input { resize: none; height: 60px; font-size: 13px; margin-botto
 
 .empty-state { text-align: center; font-size: 12px; font-style: italic; color: var(--text-tertiary); padding: 24px 0; }
 
+/* ── Chart ─────────────────────────────────────────────────────────────── */
+.chart-wrap { position: relative; height: 190px; }
+.chart-legend {
+  display: flex; gap: 16px; justify-content: flex-end; margin-bottom: 12px;
+}
+.chart-legend-item { display: flex; align-items: center; gap: 5px; }
+.chart-legend-dot { width: 8px; height: 8px; border-radius: 3px; flex-shrink: 0; }
+.chart-legend-label { font-size: 11px; font-weight: 600; color: var(--text-tertiary); }
+
 @media (max-width: 600px) {
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
   .act-breakdown { grid-template-columns: repeat(3, 1fr); }
@@ -263,6 +273,19 @@ textarea.field-input { resize: none; height: 60px; font-size: 13px; margin-botto
           <div class="act-stat-info"><div class="act-stat-num" id="ovSwims">0</div><div class="act-stat-lbl">Swims</div></div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- ── Weekly chart ── -->
+  <div class="section">
+    <div class="section-title">Weekly Miles — Last 12 Weeks</div>
+    <div class="card">
+      <div class="chart-legend">
+        <div class="chart-legend-item"><div class="chart-legend-dot" style="background:#F97316"></div><span class="chart-legend-label">Run</span></div>
+        <div class="chart-legend-item"><div class="chart-legend-dot" style="background:#60A5FA"></div><span class="chart-legend-label">Bike</span></div>
+        <div class="chart-legend-item"><div class="chart-legend-dot" style="background:#34D399"></div><span class="chart-legend-label">Swim</span></div>
+      </div>
+      <div class="chart-wrap"><canvas id="weeklyChart"></canvas></div>
     </div>
   </div>
 
@@ -560,6 +583,7 @@ textarea.field-input { resize: none; height: 60px; font-size: 13px; margin-botto
     $('wAutofill').style.display = 'none';
     refreshPace();
     renderOverview();
+    renderChart();
     renderHistory();
   });
 
@@ -595,6 +619,123 @@ textarea.field-input { resize: none; height: 60px; font-size: 13px; margin-botto
     $('ovRuns').textContent  = week.filter(s => s.type === 'run').length;
     $('ovRides').textContent = week.filter(s => s.type === 'bike').length;
     $('ovSwims').textContent = week.filter(s => s.type === 'swim').length;
+  }
+
+  // ── Chart ─────────────────────────────────────────────────────────────────
+  function weekMonday(dateStr) {
+    const d   = new Date(dateStr + 'T12:00:00');
+    const day = d.getDay();
+    d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+    return d.toISOString().slice(0, 10);
+  }
+
+  function renderChart() {
+    const all = load();
+
+    // Build 12 Monday-anchored week buckets ending this week
+    const now = new Date();
+    const thisMonday = new Date(now);
+    thisMonday.setDate(now.getDate() - (now.getDay() === 0 ? 6 : now.getDay() - 1));
+    thisMonday.setHours(12, 0, 0, 0);
+
+    const weeks  = [];
+    const labels = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(thisMonday);
+      d.setDate(thisMonday.getDate() - i * 7);
+      const key = d.toISOString().slice(0, 10);
+      weeks.push(key);
+      labels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+    }
+
+    const runMi  = new Array(12).fill(0);
+    const bikeMi = new Array(12).fill(0);
+    const swimMi = new Array(12).fill(0);
+
+    all.forEach(s => {
+      const wk  = weekMonday(s.date);
+      const idx = weeks.indexOf(wk);
+      if (idx === -1) return;
+      const mi = toMiles(s.distance || 0, s.unit);
+      if      (s.type === 'run')  runMi[idx]  += mi;
+      else if (s.type === 'bike') bikeMi[idx] += mi;
+      else if (s.type === 'swim') swimMi[idx] += mi;
+    });
+
+    const round1 = arr => arr.map(v => Math.round(v * 10) / 10);
+    const canvas = $('weeklyChart');
+
+    if (window._cardioChart) {
+      window._cardioChart.data.labels           = labels;
+      window._cardioChart.data.datasets[0].data = round1(runMi);
+      window._cardioChart.data.datasets[1].data = round1(bikeMi);
+      window._cardioChart.data.datasets[2].data = round1(swimMi);
+      window._cardioChart.update('none');
+      return;
+    }
+
+    const tickColor  = '#4D4B47';
+    const gridColor  = 'rgba(255,255,255,0.04)';
+    const tooltipBg  = 'rgba(8,8,10,0.94)';
+
+    window._cardioChart = new Chart(canvas.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Run',  data: round1(runMi),  backgroundColor: 'rgba(249,115,22,0.80)', borderRadius: 3, borderSkipped: false, stack: 'mi' },
+          { label: 'Bike', data: round1(bikeMi), backgroundColor: 'rgba(96,165,250,0.80)',  borderRadius: 3, borderSkipped: false, stack: 'mi' },
+          { label: 'Swim', data: round1(swimMi), backgroundColor: 'rgba(52,211,153,0.80)',  borderRadius: 3, borderSkipped: false, stack: 'mi' }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 400 },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: tooltipBg,
+            borderColor: 'rgba(255,255,255,0.08)',
+            borderWidth: 1,
+            titleColor: '#FAFAFA',
+            bodyColor: '#B8B6B0',
+            padding: 10,
+            callbacks: {
+              title: items => 'Week of ' + items[0].label,
+              label: ctx  => ctx.raw > 0 ? '  ' + ctx.dataset.label + ': ' + ctx.raw + ' mi' : null,
+              footer: items => {
+                const total = items.reduce((a, i) => a + i.raw, 0);
+                return total > 0 ? 'Total: ' + Math.round(total * 10) / 10 + ' mi' : '';
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            stacked: true,
+            grid: { display: false },
+            border: { display: false },
+            ticks: {
+              color: tickColor,
+              font: { size: 10, family: 'var(--font)' },
+              maxRotation: 0,
+              maxTicksLimit: 6
+            }
+          },
+          y: {
+            stacked: true,
+            grid: { color: gridColor },
+            border: { display: false },
+            ticks: {
+              color: tickColor,
+              font: { size: 10, family: 'var(--font)' },
+              callback: v => v === 0 ? '' : v + ' mi'
+            }
+          }
+        }
+      }
+    });
   }
 
   // ── History ───────────────────────────────────────────────────────────────
@@ -674,6 +815,7 @@ textarea.field-input { resize: none; height: 60px; font-size: 13px; margin-botto
   refreshDistLabel();
   refreshPace();
   renderOverview();
+  renderChart();
   renderHistory();
 
   // Check if WHOOP is connected and update default status message
@@ -684,7 +826,7 @@ textarea.field-input { resize: none; height: 60px; font-size: 13px; margin-botto
     window.initCloudSync({
       appKey: 'cardio',
       syncedKeys: [STORE],
-      onApplied: () => { renderOverview(); renderHistory(); }
+      onApplied: () => { renderOverview(); renderChart(); renderHistory(); }
     });
   }
 
