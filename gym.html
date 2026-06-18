@@ -3510,5 +3510,422 @@ img, video, canvas, svg { max-width: 100%; }
 })();
 </script>
 
+<!-- ══════════════════════════════════════════════════════════════════════
+     NOVA AI COACH
+     ══════════════════════════════════════════════════════════════════════ -->
+<style>
+/* ── FAB orb ─────────────────────────────────────────────────────────────*/
+.nv-fab {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 56px);
+  right: 14px;
+  z-index: 60;
+  width: 46px; height: 46px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 38%, #a855f7, #6d28d9 70%);
+  box-shadow: 0 0 18px rgba(139,68,221,0.55), 0 4px 12px rgba(0,0,0,0.45);
+  border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; line-height: 1;
+  transition: transform 0.18s cubic-bezier(0.22,1,0.36,1), box-shadow 0.18s;
+}
+.nv-fab:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 26px rgba(139,68,221,0.75), 0 6px 16px rgba(0,0,0,0.5);
+}
+.nv-fab.nv-active { transform: scale(0.94); }
+.nv-online-dot {
+  position: absolute; bottom: 2px; right: 2px;
+  width: 11px; height: 11px; border-radius: 50%;
+  background: #22c55e;
+  border: 2.5px solid #0a0a0b;
+  box-shadow: 0 0 5px rgba(34,197,94,0.65);
+  pointer-events: none;
+}
+
+/* ── Panel ───────────────────────────────────────────────────────────────*/
+.nv-panel {
+  position: fixed;
+  top: 110px; right: 14px;
+  z-index: 59;
+  width: min(340px, calc(100vw - 28px));
+  max-height: 66vh;
+  display: flex; flex-direction: column;
+  background: rgba(17,16,22,0.97);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 18px;
+  box-shadow:
+    0 20px 60px rgba(0,0,0,0.65),
+    0 0 0 0.5px rgba(255,255,255,0.04) inset,
+    0 0 40px -10px rgba(124,58,237,0.22);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  opacity: 0; pointer-events: none;
+  transform: scale(0.94) translateY(-8px);
+  transform-origin: top right;
+  transition: opacity 0.22s cubic-bezier(0.22,1,0.36,1),
+              transform 0.22s cubic-bezier(0.22,1,0.36,1);
+  overflow: hidden;
+}
+.nv-panel.nv-open { opacity: 1; pointer-events: auto; transform: scale(1) translateY(0); }
+
+/* ── Panel header ────────────────────────────────────────────────────────*/
+.nv-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 14px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
+}
+.nv-header-orb {
+  width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+  background: radial-gradient(circle at 40% 38%, #a855f7, #6d28d9 70%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; line-height: 1;
+  box-shadow: 0 0 10px rgba(124,58,237,0.45);
+}
+.nv-header-info { flex: 1; min-width: 0; }
+.nv-header-name {
+  display: block; font-size: 14px; font-weight: 700;
+  color: #FAFAFA; letter-spacing: -0.02em;
+}
+.nv-header-role { display: block; font-size: 11px; color: rgba(255,255,255,0.38); }
+.nv-close-btn {
+  width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.45); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; line-height: 1; padding: 0;
+  transition: background 0.12s, color 0.12s;
+}
+.nv-close-btn:hover { background: rgba(255,255,255,0.12); color: #FAFAFA; }
+
+/* ── Messages ────────────────────────────────────────────────────────────*/
+.nv-messages {
+  flex: 1; overflow-y: auto; overscroll-behavior: contain;
+  padding: 12px 12px 8px;
+  display: flex; flex-direction: column; gap: 8px;
+  scrollbar-width: none;
+}
+.nv-messages::-webkit-scrollbar { display: none; }
+.nv-msg {
+  max-width: 88%; padding: 8px 11px; border-radius: 12px;
+  font-size: 13px; line-height: 1.55; word-break: break-word;
+}
+.nv-msg-coach {
+  align-self: flex-start;
+  background: rgba(255,255,255,0.06); color: #DDDBD5;
+  border-bottom-left-radius: 4px;
+}
+.nv-msg-user {
+  align-self: flex-end;
+  background: rgba(124,58,237,0.22); color: #FAFAFA;
+  border-bottom-right-radius: 4px;
+}
+.nv-msg ul { margin: 4px 0 0; padding-left: 18px; }
+.nv-msg li { margin: 2px 0; }
+.nv-msg strong { color: #FAFAFA; }
+.nv-msg code {
+  font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+  background: rgba(255,255,255,0.09); border-radius: 4px; padding: 1px 4px;
+}
+/* typing dots */
+.nv-typing { display: flex; align-items: center; gap: 4px; padding: 10px 14px !important; }
+.nv-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(255,255,255,0.35);
+  animation: nv-bounce 1.2s ease-in-out infinite;
+}
+.nv-dot:nth-child(2) { animation-delay: 0.2s; }
+.nv-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes nv-bounce {
+  0%,80%,100% { transform: scale(0.8); opacity: 0.35; }
+  40%          { transform: scale(1.2); opacity: 1; }
+}
+
+/* ── Chips ───────────────────────────────────────────────────────────────*/
+.nv-chips {
+  display: flex; gap: 6px; padding: 0 12px 10px;
+  flex-wrap: wrap; flex-shrink: 0;
+}
+.nv-chip {
+  padding: 5px 10px; border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.09);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.58);
+  font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.nv-chip:hover {
+  background: rgba(124,58,237,0.18); border-color: rgba(124,58,237,0.5); color: #FAFAFA;
+}
+
+/* ── Input row ───────────────────────────────────────────────────────────*/
+.nv-input-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px 12px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
+}
+.nv-input {
+  flex: 1; padding: 8px 12px;
+  background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px; color: #FAFAFA; font-size: 13px; font-family: inherit;
+  outline: none; transition: border-color 0.15s;
+}
+.nv-input::placeholder { color: rgba(255,255,255,0.27); }
+.nv-input:focus { border-color: rgba(124,58,237,0.5); }
+.nv-send-btn {
+  width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+  background: radial-gradient(circle at 40% 38%, #a855f7, #6d28d9 70%);
+  border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 15px;
+  box-shadow: 0 0 8px rgba(124,58,237,0.45);
+  transition: transform 0.12s, opacity 0.12s;
+}
+.nv-send-btn:hover { transform: scale(1.1); }
+.nv-send-btn:active { transform: scale(0.9); }
+.nv-send-btn:disabled { opacity: 0.38; cursor: not-allowed; transform: none; }
+</style>
+
+<!-- FAB -->
+<button class="nv-fab" id="nvFab" aria-label="Nova AI Coach" aria-expanded="false">
+  🧠<span class="nv-online-dot"></span>
+</button>
+
+<!-- Chat panel -->
+<div class="nv-panel" id="nvPanel" role="dialog" aria-label="Nova AI Coach" aria-hidden="true">
+  <div class="nv-header">
+    <div class="nv-header-orb">🧠</div>
+    <div class="nv-header-info">
+      <span class="nv-header-name">Nova</span>
+      <span class="nv-header-role">your gym coach</span>
+    </div>
+    <button class="nv-close-btn" id="nvClose" aria-label="Close">×</button>
+  </div>
+
+  <div class="nv-messages" id="nvMessages"></div>
+
+  <div class="nv-chips">
+    <button class="nv-chip" data-q="Give me an overview of my progress — bodyweight trend, training consistency, standout lifts, and 1–2 next steps.">📊 Overview</button>
+    <button class="nv-chip" data-q="Analyse my bodyweight log. What's the trend over the last few weeks?">⚖️ Weight</button>
+    <button class="nv-chip" data-q="Which of my lifts have progressed the most recently, and where should I focus next?">💪 Lifts</button>
+  </div>
+
+  <div class="nv-input-row">
+    <input class="nv-input" id="nvInput" type="text" placeholder="Ask Nova…" autocomplete="off" maxlength="500">
+    <button class="nv-send-btn" id="nvSend" aria-label="Send">↑</button>
+  </div>
+</div>
+
+<script>
+/* ── Nova AI Coach ───────────────────────────────────────────────────────*/
+(function () {
+  'use strict';
+  var $id = function (id) { return document.getElementById(id); };
+
+  /* open / close */
+  var nvGreeted = false;
+  function nvOpen() {
+    $id('nvPanel').classList.add('nv-open');
+    $id('nvFab').classList.add('nv-active');
+    $id('nvFab').setAttribute('aria-expanded', 'true');
+    $id('nvPanel').setAttribute('aria-hidden', 'false');
+    $id('nvInput').focus();
+    if (!nvGreeted) {
+      nvGreeted = true;
+      nvAddMsg('coach', "Hey! I'm **Nova**, your gym coach 💪 I can see your bodyweight log, workout history, and progress. What would you like to know?");
+    }
+  }
+  function nvClose() {
+    $id('nvPanel').classList.remove('nv-open');
+    $id('nvFab').classList.remove('nv-active');
+    $id('nvFab').setAttribute('aria-expanded', 'false');
+    $id('nvPanel').setAttribute('aria-hidden', 'true');
+  }
+  $id('nvFab').addEventListener('click', function () {
+    $id('nvPanel').classList.contains('nv-open') ? nvClose() : nvOpen();
+  });
+  $id('nvClose').addEventListener('click', nvClose);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && $id('nvPanel').classList.contains('nv-open')) nvClose();
+  });
+
+  /* markdown renderer */
+  function nvMd(raw) {
+    var s = raw
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/`([^`\n]+)`/g, '<code>$1</code>');
+    s = s.replace(/^[ \t]*[-•*]\s+(.+)/gm, '<li>$1</li>');
+    s = s.replace(/(<li>[\s\S]*?<\/li>(?:\n|$))+/g, function (m) { return '<ul>' + m + '</ul>'; });
+    s = s.replace(/\n/g, '<br>');
+    return s;
+  }
+
+  /* message helpers */
+  var nvIdCtr = 0;
+  function nvAddMsg(from, text) {
+    var el = document.createElement('div');
+    el.className = 'nv-msg nv-msg-' + from;
+    el.innerHTML = nvMd(text);
+    $id('nvMessages').appendChild(el);
+    $id('nvMessages').scrollTop = $id('nvMessages').scrollHeight;
+  }
+  function nvAddTyping() {
+    var id = 'nv-ty-' + nvIdCtr++;
+    var el = document.createElement('div');
+    el.id = id;
+    el.className = 'nv-msg nv-msg-coach nv-typing';
+    el.innerHTML = '<span class="nv-dot"></span><span class="nv-dot"></span><span class="nv-dot"></span>';
+    $id('nvMessages').appendChild(el);
+    $id('nvMessages').scrollTop = $id('nvMessages').scrollHeight;
+    return id;
+  }
+  function nvRemove(id) { var el = document.getElementById(id); if (el) el.remove(); }
+
+  /* data context */
+  function nvLS(key) { try { return JSON.parse(localStorage.getItem(key)); } catch (_) { return null; } }
+
+  function nvStrip(obj) {
+    if (Array.isArray(obj)) return obj.map(nvStrip);
+    if (obj !== null && typeof obj === 'object') {
+      var out = {};
+      Object.keys(obj).forEach(function (k) {
+        if (/img|photo|image|data|base64|url|thumb/i.test(k)) return;
+        out[k] = nvStrip(obj[k]);
+      });
+      return out;
+    }
+    if (typeof obj === 'string' && obj.length > 180) return obj.slice(0, 180) + '…';
+    return obj;
+  }
+
+  function nvCap(v) {
+    if (!Array.isArray(v)) return v;
+    return v.length > 90 ? v.slice(-90) : v;
+  }
+
+  function nvCtx() {
+    var weights = nvLS('po_coach_weights');
+    var coachV1 = nvLS('po_coach_v1');
+    var wkDone  = nvLS('po_coach_workout_done');
+    var photos  = nvLS('po_coach_photos');
+    var water   = nvLS('po_water_v1');
+
+    /* photo timeline — dates + weights only */
+    var photoTL = null;
+    if (Array.isArray(photos)) {
+      photoTL = photos.map(function (p) {
+        return { date: p.date || p.dateKey, weight: p.weight || null };
+      }).filter(function (p) { return p.date; });
+    } else if (photos && typeof photos === 'object') {
+      photoTL = Object.keys(photos).map(function (k) {
+        var v = photos[k];
+        return { date: k, weight: v && typeof v === 'object' ? v.weight : null };
+      });
+    }
+
+    /* weight log */
+    var weightLog = null;
+    if (weights) {
+      var entries = Array.isArray(weights) ? weights : (weights.entries || weights.log || null);
+      weightLog = nvStrip(nvCap(entries));
+    }
+
+    /* workout log */
+    var workouts = null;
+    if (coachV1) {
+      workouts = nvStrip(nvCap(Array.isArray(coachV1) ? coachV1 : [coachV1]));
+    }
+
+    var ctx = {
+      profile:       water && water.profile ? nvStrip(water.profile) : null,
+      weightLog:     weightLog,
+      workouts:      workouts,
+      workoutDone:   wkDone ? nvStrip(wkDone) : null,
+      photoTimeline: photoTL
+    };
+
+    var json = JSON.stringify(ctx);
+    if (json.length > 80000) {
+      ctx.workouts = '[truncated — dataset too large]';
+      json = JSON.stringify(ctx);
+    }
+    return json;
+  }
+
+  /* API call */
+  var NV_SYSTEM = 'You are Nova, the user\'s personal gym coach inside their fitness dashboard. ' +
+    'You can see their profile, bodyweight log, workout logs, and progress-photo timeline (images not included). ' +
+    'Coach concisely; for an overview cover bodyweight trend, training consistency, standout progress, and 1-2 next steps. ' +
+    'Short markdown bullets, encouraging but honest, under ~180 words.';
+
+  var nvBusy = false;
+  function nvAsk(question) {
+    if (nvBusy) return;
+    var key = localStorage.getItem('nova_lite_api_key');
+    if (!key) {
+      nvAddMsg('coach', 'No API key found — open the **Nova** page from the hub and paste your Anthropic key there first.');
+      return;
+    }
+    nvBusy = true;
+    $id('nvSend').disabled = true;
+    var typing = nvAddTyping();
+    fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-8',
+        max_tokens: 1024,
+        system: NV_SYSTEM + '\n\nUSER DATA:\n' + nvCtx(),
+        messages: [{ role: 'user', content: question }]
+      })
+    }).then(function (res) {
+      nvRemove(typing);
+      if (!res.ok) {
+        return res.text().then(function (t) {
+          nvAddMsg('coach', 'API error ' + res.status + ': ' + t.slice(0, 200));
+        });
+      }
+      return res.json().then(function (data) {
+        var reply = data.content && data.content[0] && data.content[0].text;
+        nvAddMsg('coach', reply || '(empty response)');
+      });
+    }).catch(function (err) {
+      nvRemove(typing);
+      nvAddMsg('coach', 'Network error: ' + (err.message || String(err)));
+    }).finally(function () {
+      nvBusy = false;
+      $id('nvSend').disabled = false;
+    });
+  }
+
+  /* send */
+  function nvSend() {
+    var q = $id('nvInput').value.trim();
+    if (!q || nvBusy) return;
+    $id('nvInput').value = '';
+    nvAddMsg('user', q);
+    nvAsk(q);
+  }
+  $id('nvSend').addEventListener('click', nvSend);
+  $id('nvInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); nvSend(); }
+  });
+
+  /* chips */
+  document.querySelectorAll('.nv-chip').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      nvAddMsg('user', chip.dataset.q);
+      nvAsk(chip.dataset.q);
+    });
+  });
+})();
+</script>
+
 </body>
 </html>
