@@ -164,6 +164,9 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
 
   const bottombarHtml = `
 <nav class="bottombar" id="bottombar" role="navigation" aria-label="Main tabs">
+  <a href="index.html" class="bottombar-tab" data-page="hub">
+    <span class="bottombar-tab-icon">⊞</span><span>Hub</span>
+  </a>
   <a href="main.html" class="bottombar-tab" data-page="main">
     <span class="bottombar-tab-icon">🏠</span><span>Main</span>
   </a>
@@ -188,7 +191,8 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
     if (p.endsWith('health.html')) return 'health';
     if (p.endsWith('gym.html')) return 'fitness';
     if (p.endsWith('main.html')) return 'main';
-    return null; // hub (index.html) — no tab highlighted
+    if (p === '/' || p.endsWith('index.html')) return 'hub';
+    return null;
   }
 
   function injectStyleAndHTML() {
