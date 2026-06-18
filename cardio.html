@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="lock.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050506">
+<title>Cardio · Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="sync.js" defer></script>
+<script src="topbar.js" defer></script>
+<style>
+:root {
+  --text-primary: #FAFAFA;
+  --text-secondary: #B8B6B0;
+  --text-tertiary: #76746E;
+  --text-quaternary: #4D4B47;
+  --success: #6BE3A4;
+  --warning: #F2C063;
+  --danger: #FF6B6B;
+  --run: #F97316;
+  --bike: #60A5FA;
+  --swim: #34D399;
+  --border: rgba(255,255,255,0.07);
+  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #050506; color: var(--text-secondary); font-family: var(--font); -webkit-font-smoothing: antialiased; }
+body {
+  min-height: 100vh; position: relative; overflow-x: hidden;
+  padding: max(28px, env(safe-area-inset-top)) 20px 84px;
+}
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background:
+    radial-gradient(circle at 75% 12%, rgba(249,115,22,0.13), transparent 42%),
+    radial-gradient(circle at 20% 88%, rgba(52,211,153,0.07), transparent 48%);
+  filter: blur(40px); pointer-events: none; z-index: -2;
+  animation: drift 40s ease-in-out infinite alternate;
+}
+body::after {
+  content: ''; position: fixed; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.013) 1px, transparent 1px);
+  background-size: 3px 3px; pointer-events: none; z-index: -1;
+}
+@keyframes drift { 0% { transform: translate3d(0,0,0); } 100% { transform: translate3d(-20px,14px,0); } }
+
+.page { max-width: 720px; margin: 0 auto; }
+
+.dash-title {
+  margin: 0 0 20px; font-size: 28px; font-weight: 700; letter-spacing: -0.025em;
+  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+
+.section { margin-top: 4px; }
+.section-title {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--text-tertiary); display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+}
+.section-title::before { content: ''; width: 18px; height: 1px; background: var(--text-tertiary); opacity: 0.6; }
+.section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent); }
+
+.card {
+  position: relative; background: rgba(255,255,255,0.04); border-radius: 16px;
+  padding: 20px; margin-bottom: 14px;
+  backdrop-filter: blur(24px) saturate(1.2); -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+}
+
+/* ── Overview stats ────────────────────────────────────────────────────── */
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.stat {
+  background: rgba(255,255,255,0.035); border: 1px solid var(--border);
+  border-radius: 12px; padding: 13px 14px;
+}
+.stat-num { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.03em; color: var(--text-primary); line-height: 1; }
+.stat-label { margin-top: 6px; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); }
+
+.act-breakdown { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+.act-stat {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(255,255,255,0.025); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 12px;
+}
+.act-stat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.act-stat-dot.run  { background: var(--run); }
+.act-stat-dot.bike { background: var(--bike); }
+.act-stat-dot.swim { background: var(--swim); }
+.act-stat-info {}
+.act-stat-num { font-size: 16px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1; }
+.act-stat-lbl { font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 3px; }
+
+/* ── Activity toggle ───────────────────────────────────────────────────── */
+.act-toggle { display: flex; gap: 8px; margin-bottom: 16px; }
+.act-btn {
+  flex: 1; padding: 10px 8px; border-radius: 12px;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.04);
+  color: var(--text-tertiary); font: 600 13px/1 var(--font);
+  cursor: pointer; text-align: center; transition: all 0.14s;
+}
+.act-btn:hover { background: rgba(255,255,255,0.07); color: var(--text-secondary); }
+.act-btn.active[data-act="run"]  { background: rgba(249,115,22,0.14); border-color: rgba(249,115,22,0.38); color: #FB923C; }
+.act-btn.active[data-act="bike"] { background: rgba(96,165,250,0.14); border-color: rgba(96,165,250,0.38); color: #60A5FA; }
+.act-btn.active[data-act="swim"] { background: rgba(52,211,153,0.14); border-color: rgba(52,211,153,0.38); color: #34D399; }
+
+/* ── Form ──────────────────────────────────────────────────────────────── */
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.field-group { display: flex; flex-direction: column; gap: 6px; }
+.field-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); }
+.field-input {
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
+  background: rgba(0,0,0,0.28); color: var(--text-primary);
+  font-family: inherit; font-size: 14px; outline: none; transition: border-color 0.15s;
+  -moz-appearance: textfield; appearance: textfield;
+}
+.field-input::-webkit-outer-spin-button,
+.field-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.field-input:focus { border-color: rgba(255,255,255,0.22); }
+.field-input::placeholder { color: var(--text-quaternary); }
+select.field-input { cursor: pointer; }
+textarea.field-input { resize: none; height: 60px; font-size: 13px; margin-bottom: 10px; display: block; width: 100%; }
+
+/* Auto-computed pace bar */
+.pace-bar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; margin-bottom: 10px;
+  background: rgba(255,255,255,0.025); border: 1px solid var(--border); border-radius: 10px;
+}
+.pace-bar-label { font-size: 11px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-tertiary); flex: 1; }
+.pace-bar-value { font-size: 18px; font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.pace-bar-unit { font-size: 11px; color: var(--text-tertiary); margin-left: 4px; }
+
+/* WHOOP pull row */
+.whoop-row {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+  padding: 11px 14px; background: rgba(168,85,247,0.06);
+  border: 1px solid rgba(168,85,247,0.18); border-radius: 10px;
+}
+.whoop-row-icon { font-size: 15px; flex-shrink: 0; }
+.whoop-row-body { flex: 1; min-width: 0; }
+.whoop-row-title { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.whoop-row-stats { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.whoop-sync-btn {
+  padding: 7px 12px; border-radius: 8px; border: 1px solid rgba(168,85,247,0.38);
+  background: rgba(168,85,247,0.11); color: #C084FC;
+  font: 600 12px/1 var(--font); cursor: pointer; white-space: nowrap; flex-shrink: 0;
+  transition: background 0.13s;
+}
+.whoop-sync-btn:hover { background: rgba(168,85,247,0.22); }
+.whoop-sync-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.whoop-autofill-note { font-size: 10.5px; color: #A78BFA; margin-top: 2px; }
+
+/* Save button */
+.save-btn {
+  width: 100%; padding: 12px 0; border: 0; border-radius: 12px; margin-top: 4px;
+  background: linear-gradient(180deg, #FFFFFF 0%, #E8E5DD 100%);
+  color: #0A0A0B; font-family: inherit; font-size: 14px; font-weight: 700;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 2px 8px rgba(0,0,0,0.35), 0 6px 20px rgba(0,0,0,0.22);
+  transition: transform 0.1s, filter 0.15s;
+}
+.save-btn:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.save-btn:active { transform: translateY(0); }
+
+/* ── History ───────────────────────────────────────────────────────────── */
+.filter-row { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+.filter-btn {
+  padding: 5px 13px; border-radius: 20px; border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04); color: var(--text-tertiary);
+  font: 600 12px/1 var(--font); cursor: pointer; transition: all 0.12s;
+}
+.filter-btn.active { background: rgba(255,255,255,0.10); color: var(--text-primary); border-color: rgba(255,255,255,0.18); }
+
+.session-list { display: flex; flex-direction: column; gap: 8px; }
+.session-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; background: rgba(255,255,255,0.035);
+  border: 1px solid var(--border); border-radius: 12px; transition: background 0.14s;
+}
+.session-item:hover { background: rgba(255,255,255,0.055); }
+
+.act-icon {
+  width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 18px;
+}
+.act-icon.run  { background: rgba(249,115,22,0.14); }
+.act-icon.bike { background: rgba(96,165,250,0.14); }
+.act-icon.swim { background: rgba(52,211,153,0.14); }
+
+.session-main { flex: 1; min-width: 0; }
+.session-top { display: flex; align-items: baseline; gap: 8px; margin-bottom: 3px; flex-wrap: wrap; }
+.session-dist { font-size: 16px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.session-pace { font-size: 12px; color: var(--text-tertiary); font-family: var(--font-mono); }
+.session-meta { font-size: 11px; color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.session-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.whoop-chips { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+.chip {
+  padding: 3px 8px; border-radius: 6px;
+  font-size: 11px; font-weight: 700; font-family: var(--font-mono);
+  white-space: nowrap;
+}
+.chip-strain-low  { background: rgba(96,165,250,0.14); color: #60A5FA; }
+.chip-strain-med  { background: rgba(107,227,164,0.14); color: #6BE3A4; }
+.chip-strain-high { background: rgba(242,192,99,0.14); color: #F2C063; }
+.chip-strain-peak { background: rgba(249,115,22,0.14); color: #FB923C; }
+.chip-hr { background: rgba(255,107,107,0.10); color: #FF8080; }
+
+.del-btn {
+  border: 0; background: transparent; color: var(--text-tertiary);
+  font-size: 18px; line-height: 1; cursor: pointer; padding: 3px 5px;
+  opacity: 0.35; transition: opacity 0.14s, color 0.14s;
+}
+.session-item:hover .del-btn { opacity: 0.8; }
+.del-btn:hover { color: var(--danger); opacity: 1; }
+
+.empty-state { text-align: center; font-size: 12px; font-style: italic; color: var(--text-tertiary); padding: 24px 0; }
+
+@media (max-width: 600px) {
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .act-breakdown { grid-template-columns: repeat(3, 1fr); }
+  .field-grid { grid-template-columns: 1fr; }
+  .whoop-row { flex-wrap: wrap; }
+  .whoop-chips { display: none; }
+}
+@media (max-width: 480px) {
+  body { padding: max(20px, env(safe-area-inset-top)) 14px 84px; }
+  .card { padding: 16px; }
+  .dash-title { font-size: 22px; }
+  .act-breakdown { grid-template-columns: 1fr 1fr 1fr; gap: 7px; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1 class="dash-title">Cardio</h1>
+
+  <!-- ── Overview ── -->
+  <div class="section">
+    <div class="section-title">This Week</div>
+    <div class="card">
+      <div class="stat-grid">
+        <div class="stat"><div class="stat-num" id="ovSessions">0</div><div class="stat-label">Sessions</div></div>
+        <div class="stat"><div class="stat-num" id="ovMiles">0</div><div class="stat-label">Miles</div></div>
+        <div class="stat"><div class="stat-num" id="ovTime">0m</div><div class="stat-label">Total Time</div></div>
+        <div class="stat"><div class="stat-num" id="ovHr">—</div><div class="stat-label">Avg HR</div></div>
+      </div>
+      <div class="act-breakdown">
+        <div class="act-stat">
+          <div class="act-stat-dot run"></div>
+          <div class="act-stat-info"><div class="act-stat-num" id="ovRuns">0</div><div class="act-stat-lbl">Runs</div></div>
+        </div>
+        <div class="act-stat">
+          <div class="act-stat-dot bike"></div>
+          <div class="act-stat-info"><div class="act-stat-num" id="ovRides">0</div><div class="act-stat-lbl">Rides</div></div>
+        </div>
+        <div class="act-stat">
+          <div class="act-stat-dot swim"></div>
+          <div class="act-stat-info"><div class="act-stat-num" id="ovSwims">0</div><div class="act-stat-lbl">Swims</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Log Session ── -->
+  <div class="section">
+    <div class="section-title">Log Session</div>
+    <div class="card">
+
+      <div class="act-toggle">
+        <button class="act-btn active" data-act="run">🏃 Run</button>
+        <button class="act-btn" data-act="bike">🚴 Bike</button>
+        <button class="act-btn" data-act="swim">🏊 Swim</button>
+      </div>
+
+      <div class="field-grid">
+        <div class="field-group">
+          <label class="field-label">Date</label>
+          <input class="field-input" type="date" id="fDate">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Duration (min)</label>
+          <input class="field-input" type="number" id="fDur" min="1" max="600" placeholder="30">
+        </div>
+      </div>
+
+      <div class="field-grid">
+        <div class="field-group">
+          <label class="field-label" id="fDistLabel">Distance</label>
+          <input class="field-input" type="number" id="fDist" min="0" step="0.01" placeholder="3.1">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Unit</label>
+          <select class="field-input" id="fUnit">
+            <option value="mi">Miles (mi)</option>
+            <option value="km">Kilometres (km)</option>
+            <option value="yd">Yards (yd)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="pace-bar">
+        <span class="pace-bar-label" id="fPaceLabel">Pace</span>
+        <span class="pace-bar-value" id="fPaceVal">—</span>
+        <span class="pace-bar-unit" id="fPaceUnit"></span>
+      </div>
+
+      <div class="whoop-row">
+        <span class="whoop-row-icon">🧠</span>
+        <div class="whoop-row-body">
+          <div class="whoop-row-title">WHOOP — pull latest session</div>
+          <div class="whoop-row-stats" id="wStats">Connect WHOOP on the Health page first</div>
+          <div class="whoop-autofill-note" id="wAutofill" style="display:none">↑ Distance &amp; duration auto-filled</div>
+        </div>
+        <button class="whoop-sync-btn" id="wSyncBtn">Sync</button>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">Notes</label>
+        <textarea class="field-input" id="fNotes" placeholder="How did it feel? Any PRs?"></textarea>
+      </div>
+
+      <button class="save-btn" id="fSave">Save Session</button>
+    </div>
+  </div>
+
+  <!-- ── History ── -->
+  <div class="section">
+    <div class="section-title">History</div>
+    <div class="card">
+      <div class="filter-row">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="run">🏃 Run</button>
+        <button class="filter-btn" data-filter="bike">🚴 Bike</button>
+        <button class="filter-btn" data-filter="swim">🏊 Swim</button>
+      </div>
+      <div class="session-list" id="historyList"></div>
+    </div>
+  </div>
+
+</div><!-- /.page -->
+
+<script>
+(function () {
+  'use strict';
+
+  const STORE  = 'cardio_v1';
+  const $ = id => document.getElementById(id);
+
+  // WHOOP sport_id → activity type  (add more IDs if needed)
+  const WHOOP_SPORT_MAP = {
+    1: 'run',   // Running
+    15: 'run',  // Treadmill
+    3: 'bike',  // Cycling
+    71: 'bike', // Peloton / stationary
+    26: 'swim', // Swimming
+    35: 'swim'  // Open Water Swim
+  };
+  const SPORT_IDS = { run: [1, 15], bike: [3, 71], swim: [26, 35] };
+
+  const ACT_EMOJI = { run: '🏃', bike: '🚴', swim: '🏊' };
+  const ACT_LABEL = { run: 'Run', bike: 'Ride', swim: 'Swim' };
+
+  // ── Storage ──────────────────────────────────────────────────────────────
+  function load() { try { return JSON.parse(localStorage.getItem(STORE)) || []; } catch { return []; } }
+  function save(d) { localStorage.setItem(STORE, JSON.stringify(d)); }
+
+  // ── Form state ────────────────────────────────────────────────────────────
+  let actType  = 'run';
+  let filter   = 'all';
+  let pulled   = null; // WHOOP data attached to the in-progress session
+
+  $('fDate').value = new Date().toISOString().slice(0, 10);
+
+  // ── Activity toggle ───────────────────────────────────────────────────────
+  document.querySelectorAll('.act-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.act-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      actType = btn.dataset.act;
+      pulled  = null;
+      $('wStats').textContent = 'Connect WHOOP on the Health page first';
+      $('wAutofill').style.display = 'none';
+      refreshDistLabel();
+      refreshPace();
+    });
+  });
+
+  function refreshDistLabel() {
+    const unitNames = { mi: 'Miles', km: 'Kilometres', yd: 'Yards' };
+    $('fDistLabel').textContent = 'Distance (' + (unitNames[$('fUnit').value] || 'mi') + ')';
+  }
+  $('fUnit').addEventListener('change', () => { refreshDistLabel(); refreshPace(); });
+
+  // ── Pace ──────────────────────────────────────────────────────────────────
+  function refreshPace() {
+    const dist = parseFloat($('fDist').value) || 0;
+    const dur  = parseFloat($('fDur').value)  || 0;
+    const unit = $('fUnit').value;
+
+    if (!dist || !dur) {
+      $('fPaceVal').textContent  = '—';
+      $('fPaceUnit').textContent = paceUnit(actType, unit);
+      return;
+    }
+
+    if (actType === 'run') {
+      const mpm = dur / dist;
+      const m   = Math.floor(mpm);
+      const s   = Math.round((mpm - m) * 60);
+      $('fPaceVal').textContent  = m + ':' + String(s).padStart(2, '0');
+      $('fPaceUnit').textContent = 'min/' + (unit === 'km' ? 'km' : 'mi');
+    } else if (actType === 'bike') {
+      $('fPaceVal').textContent  = (dist / (dur / 60)).toFixed(1);
+      $('fPaceUnit').textContent = unit === 'km' ? 'kph' : 'mph';
+    } else {
+      // swim: min per 100 units
+      $('fPaceVal').textContent  = (dur / (dist / 100)).toFixed(1);
+      $('fPaceUnit').textContent = 'min/100' + unit;
+    }
+    $('fPaceLabel').textContent = actType === 'bike' ? 'Speed' : 'Pace';
+  }
+
+  function paceUnit(act, unit) {
+    if (act === 'run')  return 'min/' + (unit === 'km' ? 'km' : 'mi');
+    if (act === 'bike') return unit === 'km' ? 'kph' : 'mph';
+    return 'min/100' + (unit || 'yd');
+  }
+
+  $('fDist').addEventListener('input', refreshPace);
+  $('fDur').addEventListener('input',  refreshPace);
+
+  // ── WHOOP ─────────────────────────────────────────────────────────────────
+  function loadTokens() {
+    try { const t = JSON.parse(localStorage.getItem('whoop_tokens_v1')); if (t && t.access) return t; } catch {} return null;
+  }
+  function saveTokens(t) { try { localStorage.setItem('whoop_tokens_v1', JSON.stringify(t)); } catch {} }
+
+  async function refreshTok(t) {
+    if (!t.refresh) return null;
+    try {
+      const r = await fetch('/api/whoop-refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: t.refresh }) });
+      const j = await r.json();
+      if (j.access_token) {
+        const n = { access: j.access_token, refresh: j.refresh_token || t.refresh, expires: Date.now() + (j.expires_in || 3500) * 1000 };
+        saveTokens(n); return n;
+      }
+    } catch {}
+    return null;
+  }
+
+  async function whFetch(path, t) {
+    const [p, qs] = path.split('?');
+    const params = new URLSearchParams(qs || '');
+    params.set('path', p);
+    const r = await fetch('/api/whoop-data?' + params.toString(), { headers: { 'Authorization': 'Bearer ' + t.access } });
+    if (r.status === 401) { const n = await refreshTok(t); if (n) return whFetch(path, n); throw new Error('unauthorized'); }
+    if (!r.ok) throw new Error('WHOOP ' + r.status);
+    return r.json();
+  }
+
+  $('wSyncBtn').addEventListener('click', async () => {
+    const tok = loadTokens();
+    if (!tok) { $('wStats').textContent = 'Not connected — visit Health page to link WHOOP'; return; }
+
+    const btn = $('wSyncBtn');
+    btn.disabled = true; btn.textContent = '…';
+    $('wAutofill').style.display = 'none';
+
+    try {
+      const data = await whFetch('/workout?limit=25', tok);
+      const records = (data && data.records) || [];
+
+      // Prefer a workout matching the selected activity type; fall back to most recent
+      const ids    = SPORT_IDS[actType] || [];
+      const match  = records.find(r => ids.includes(r.sport_id)) || records[0];
+
+      if (!match || !match.score) {
+        $('wStats').textContent = 'No recent workout found in WHOOP';
+        pulled = null;
+      } else {
+        const sc = match.score;
+        pulled = {
+          strain:    sc.strain             != null ? Math.round(sc.strain * 10) / 10 : null,
+          avgHr:     sc.average_heart_rate != null ? Math.round(sc.average_heart_rate) : null,
+          maxHr:     sc.max_heart_rate     != null ? Math.round(sc.max_heart_rate) : null,
+          kilojoules: sc.kilojoules        != null ? Math.round(sc.kilojoules) : null,
+          distM:     sc.distance_meter     != null ? sc.distance_meter : null,
+          sport_id:  match.sport_id
+        };
+
+        // Build summary line
+        const parts = [];
+        if (pulled.strain != null) parts.push('Strain ' + pulled.strain);
+        if (pulled.avgHr  != null) parts.push('Avg ' + pulled.avgHr + ' bpm');
+        if (pulled.maxHr  != null) parts.push('Max ' + pulled.maxHr + ' bpm');
+        $('wStats').textContent = parts.length ? parts.join(' · ') : 'Session found (no score data)';
+
+        // Auto-fill distance if the field is empty and WHOOP has it
+        let autofilled = false;
+        if (pulled.distM && !$('fDist').value) {
+          const unit = $('fUnit').value;
+          let converted = pulled.distM;
+          if (unit === 'mi') converted = pulled.distM / 1609.344;
+          else if (unit === 'km') converted = pulled.distM / 1000;
+          else if (unit === 'yd') converted = pulled.distM * 1.09361;
+          $('fDist').value = converted.toFixed(2);
+          autofilled = true;
+        }
+
+        // Auto-fill duration if empty
+        if (match.start && match.end && !$('fDur').value) {
+          const dur = Math.round((new Date(match.end) - new Date(match.start)) / 60000);
+          if (dur > 0) { $('fDur').value = dur; autofilled = true; }
+        }
+
+        if (autofilled) { $('wAutofill').style.display = 'block'; refreshPace(); }
+      }
+    } catch (e) {
+      $('wStats').textContent = 'Error: ' + (e.message || 'check connection');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Sync';
+    }
+  });
+
+  // ── Save ──────────────────────────────────────────────────────────────────
+  $('fSave').addEventListener('click', () => {
+    const dist = parseFloat($('fDist').value);
+    const dur  = parseFloat($('fDur').value);
+    if (!dist || dist <= 0) { alert('Please enter a distance.'); return; }
+    if (!dur  || dur  <= 0) { alert('Please enter a duration.'); return; }
+
+    const session = {
+      id:       Date.now(),
+      date:     $('fDate').value || new Date().toISOString().slice(0, 10),
+      type:     actType,
+      distance: dist,
+      unit:     $('fUnit').value,
+      duration: dur,
+      pace:     $('fPaceVal').textContent,
+      paceUnit: $('fPaceUnit').textContent,
+      notes:    $('fNotes').value.trim(),
+      whoop:    pulled ? { ...pulled } : null
+    };
+
+    const list = load();
+    list.unshift(session);
+    save(list);
+
+    // Reset
+    $('fDist').value  = '';
+    $('fDur').value   = '';
+    $('fNotes').value = '';
+    pulled = null;
+    $('wStats').textContent = 'Connect WHOOP on the Health page first';
+    $('wAutofill').style.display = 'none';
+    refreshPace();
+    renderOverview();
+    renderHistory();
+  });
+
+  // ── Overview ──────────────────────────────────────────────────────────────
+  function toMiles(dist, unit) {
+    if (unit === 'km') return dist / 1.60934;
+    if (unit === 'yd') return dist / 1760;
+    return dist; // mi
+  }
+
+  function renderOverview() {
+    const all  = load();
+    const now  = new Date();
+    const wAgo = new Date(now); wAgo.setDate(now.getDate() - 7);
+    const wKey = wAgo.toISOString().slice(0, 10);
+    const week = all.filter(s => s.date >= wKey);
+
+    $('ovSessions').textContent = week.length;
+
+    const totalMi = week.reduce((a, s) => a + toMiles(s.distance || 0, s.unit), 0);
+    $('ovMiles').textContent = totalMi < 10 ? totalMi.toFixed(1) : Math.round(totalMi);
+
+    const totalMin = week.reduce((a, s) => a + (s.duration || 0), 0);
+    $('ovTime').textContent = totalMin >= 60
+      ? Math.floor(totalMin / 60) + 'h' + (totalMin % 60 ? ' ' + (totalMin % 60) + 'm' : '')
+      : totalMin + 'm';
+
+    const hrSes = week.filter(s => s.whoop && s.whoop.avgHr);
+    $('ovHr').textContent = hrSes.length
+      ? Math.round(hrSes.reduce((a, s) => a + s.whoop.avgHr, 0) / hrSes.length)
+      : '—';
+
+    $('ovRuns').textContent  = week.filter(s => s.type === 'run').length;
+    $('ovRides').textContent = week.filter(s => s.type === 'bike').length;
+    $('ovSwims').textContent = week.filter(s => s.type === 'swim').length;
+  }
+
+  // ── History ───────────────────────────────────────────────────────────────
+  function strainChipClass(v) {
+    if (v == null) return '';
+    if (v < 8)  return 'chip chip-strain-low';
+    if (v < 14) return 'chip chip-strain-med';
+    if (v < 18) return 'chip chip-strain-high';
+    return 'chip chip-strain-peak';
+  }
+
+  function renderHistory() {
+    const all      = load();
+    const filtered = filter === 'all' ? all : all.filter(s => s.type === filter);
+    const el       = $('historyList');
+    el.innerHTML   = '';
+
+    if (!filtered.length) {
+      el.innerHTML = '<div class="empty-state">No sessions yet — log your first cardio session above.</div>';
+      return;
+    }
+
+    filtered.forEach(s => {
+      const item = document.createElement('div');
+      item.className = 'session-item';
+
+      const d       = new Date(s.date + 'T12:00:00');
+      const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const distStr = (s.distance || 0).toFixed(s.distance >= 10 ? 0 : 1) + ' ' + (s.unit || 'mi');
+
+      // Build WHOOP chips
+      let chipsHtml = '';
+      if (s.whoop) {
+        if (s.whoop.strain != null) chipsHtml += `<span class="${strainChipClass(s.whoop.strain)}">${s.whoop.strain}</span>`;
+        if (s.whoop.avgHr  != null) chipsHtml += `<span class="chip chip-hr">${s.whoop.avgHr}♥</span>`;
+      }
+
+      const paceStr  = (s.pace && s.pace !== '—') ? s.pace + ' ' + (s.paceUnit || '') : '';
+      const metaStr  = [dateStr, s.duration + ' min', ACT_LABEL[s.type] || s.type, s.notes].filter(Boolean).join(' · ');
+
+      item.innerHTML = `
+        <div class="act-icon ${s.type}">${ACT_EMOJI[s.type] || '🏃'}</div>
+        <div class="session-main">
+          <div class="session-top">
+            <span class="session-dist">${distStr}</span>
+            ${paceStr ? `<span class="session-pace">${paceStr}</span>` : ''}
+          </div>
+          <div class="session-meta">${metaStr}</div>
+        </div>
+        <div class="session-right">
+          <div class="whoop-chips">${chipsHtml}</div>
+          <button class="del-btn" data-id="${s.id}" aria-label="Delete">×</button>
+        </div>`;
+
+      item.querySelector('.del-btn').addEventListener('click', () => {
+        const next = load().filter(x => x.id !== s.id);
+        save(next);
+        renderOverview();
+        renderHistory();
+      });
+
+      el.appendChild(item);
+    });
+  }
+
+  // ── Filters ───────────────────────────────────────────────────────────────
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      filter = btn.dataset.filter;
+      renderHistory();
+    });
+  });
+
+  // ── Boot ──────────────────────────────────────────────────────────────────
+  refreshDistLabel();
+  refreshPace();
+  renderOverview();
+  renderHistory();
+
+  // Check if WHOOP is connected and update default status message
+  if (loadTokens()) { $('wStats').textContent = 'Press Sync to pull your latest workout'; }
+
+  // ── Cloud sync ────────────────────────────────────────────────────────────
+  if (window.initCloudSync) {
+    window.initCloudSync({
+      appKey: 'cardio',
+      syncedKeys: [STORE],
+      onApplied: () => { renderOverview(); renderHistory(); }
+    });
+  }
+
+})();
+</script>
+</body>
+</html>
