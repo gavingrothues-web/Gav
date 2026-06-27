@@ -1856,6 +1856,36 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   }
   document.addEventListener('click', logClick, true);
   document.addEventListener('touchend', logClick, true);
+
+  // Catch parse/runtime errors from any later script block and show in pill.
+  window.onerror = function(msg, src, line, col) {
+    pill.textContent = 'ERR L' + line + ': ' + msg;
+    return false;
+  };
+})();
+</script>
+
+<!-- Tab switcher in its own block — immune to main IIFE parse errors -->
+<script>
+(function(){
+  function applyTab(name) {
+    document.querySelectorAll('.bot-tab').forEach(function(b){
+      b.classList.toggle('active', b.dataset.tab === name);
+    });
+    document.querySelectorAll('.section[data-section]').forEach(function(s){
+      if (s.dataset.section === name) s.removeAttribute('hidden');
+      else s.setAttribute('hidden', '');
+    });
+    try { localStorage.setItem('finance_active_tab', name); } catch(e) {}
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+  window._finTab = applyTab;
+  function restore() {
+    var saved; try { saved = localStorage.getItem('finance_active_tab'); } catch(e) {}
+    applyTab(saved && ['net','subs','incoming','wish','nova'].indexOf(saved) !== -1 ? saved : 'net');
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', restore);
+  else restore();
 })();
 </script>
 
