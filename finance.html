@@ -3862,8 +3862,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   setInterval(safeRenderTicker, 1500);
 
   // ============================================================
-  // NOVA — AI money coach. Sends the chat + a snapshot of the user's
-  // finances straight to Anthropic (via callClaude) and renders the reply.
+  // NOVA — AI money coach. POSTs the conversation + a finance snapshot
+  // to /api/nova (server-side, key never leaves Vercel) and renders the reply.
   // ============================================================
   (function initNova() {
     const messagesEl = document.getElementById('novaMessages');
@@ -3916,46 +3916,24 @@ input[type="date"]::-webkit-calendar-picker-indicator {
       const pending = addBubble('nova', 'Nova is thinking…');
       pending.classList.add('nova-msg-loading');
 
-      const system =
-        "You are Nova, the built-in money coach for a personal net-worth dashboard. "
-        + "A JSON snapshot of the user's own finances is included below — use it to give "
-        + "specific, grounded, practical guidance about their money.\n\n"
-        + "How to respond:\n"
-        + "- Be warm, direct and concise. Lead with the answer, then a short reason. A few "
-        + "sentences or a tight bulleted list — never an essay.\n"
-        + "- Ground every claim in their actual data. Quote real figures (with the currency "
-        + "shown) instead of speaking in generalities. If the snapshot doesn't contain what "
-        + "you'd need, say so and ask one focused follow-up question.\n"
-        + "- Net-worth amounts in the snapshot are stored in CHF; \"currency\" is the user's "
-        + "display currency. Subscriptions list a cost and billing period; orders are incoming "
-        + "purchases; wishlist items are things they're saving for.\n"
-        + "- You give general financial education and guidance, not regulated investment, tax "
-        + "or legal advice. For big or irreversible money decisions, remind them to confirm "
-        + "with a qualified professional.\n"
-        + "- Never invent balances, holdings or transactions that aren't in the snapshot.\n"
-        + "- Reply with your final answer only — no internal reasoning, no \"Based on...\" preamble.\n\n"
-        + "Finance snapshot (JSON):\n" + JSON.stringify(gatherFinance());
-
       try {
-        const data = await callClaude({
-          model: 'claude-opus-4-8',
-          max_tokens: 1024,
-          system: system,
-          messages: convo
+        const r = await fetch('/api/nova', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ messages: convo, finance: gatherFinance() })
         });
+        const data = await r.json().catch(() => ({}));
         pending.classList.remove('nova-msg-loading');
-        const reply = (data.content || [])
-          .filter(b => b && b.type === 'text').map(b => b.text).join('').trim() || '(no response)';
-        pending.textContent = reply;
-        convo.push({ role: 'assistant', content: reply });
+        if (!r.ok) {
+          pending.textContent = '⚠ ' + (data.error || 'Server error (' + r.status + ')');
+        } else {
+          const reply = data.text || '(no response)';
+          pending.textContent = reply;
+          convo.push({ role: 'assistant', content: reply });
+        }
       } catch (e) {
         pending.classList.remove('nova-msg-loading');
-        if (e && e.code === 'NO_KEY') {
-          pending.textContent = '⚠ Add your Anthropic API key to chat with Nova — tap “AI key” at the top.';
-          openKeyModal('Nova needs an Anthropic API key. Paste one below to start chatting.');
-        } else {
-          pending.textContent = '⚠ ' + ((e && e.message) || "Couldn't reach Nova.");
-        }
+        pending.textContent = '⚠ ' + ((e && e.message) || “Couldn't reach Nova.”);
       } finally {
         sendBtn.disabled = false;
         messagesEl.scrollTop = messagesEl.scrollHeight;
