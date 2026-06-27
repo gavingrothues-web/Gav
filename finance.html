@@ -1850,12 +1850,12 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   pill.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);background:#6BE3A4;color:#050506;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;z-index:9999;pointer-events:none;white-space:nowrap;';
   pill.textContent = 'JS running';
   document.body.appendChild(pill);
-  document.addEventListener('click', function(e){
-    pill.textContent = 'clicked: ' + (e.target.id || e.target.className || e.target.tagName);
-  }, true);
-  document.addEventListener('touchend', function(e){
-    pill.textContent = 'touch: ' + (e.target.id || e.target.className || e.target.tagName);
-  }, true);
+  function logClick(e){
+    var tab = typeof window._finTab;
+    pill.textContent = (e.type==='touchend'?'touch':'click') + ': ' + (e.target.id || e.target.className || e.target.tagName) + ' | _finTab:' + tab;
+  }
+  document.addEventListener('click', logClick, true);
+  document.addEventListener('touchend', logClick, true);
 })();
 </script>
 
@@ -2329,6 +2329,25 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 <script>
 (function() {
+
+  // ============================================================
+  // TAB SWITCHER — defined first so onclick= attributes work even
+  // if anything later in this IIFE throws.
+  // ============================================================
+  window._finTab = function(name) {
+    document.querySelectorAll('.bot-tab').forEach(function(b) {
+      b.classList.toggle('active', b.dataset.tab === name);
+    });
+    document.querySelectorAll('.section[data-section]').forEach(function(s) {
+      if (s.dataset.section === name) s.removeAttribute('hidden');
+      else s.setAttribute('hidden', '');
+    });
+    try { localStorage.setItem('finance_active_tab', name); } catch(e) {}
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  };
+  var _savedTab = (function(){ try { return localStorage.getItem('finance_active_tab'); } catch(e){ return null; } })();
+  if (!_savedTab || ['net','subs','incoming','wish','nova'].indexOf(_savedTab) === -1) _savedTab = 'net';
+  window._finTab(_savedTab);
 
   // ============================================================
   // STORAGE — localStorage shim. Same interface as the dashboard's
