@@ -1923,6 +1923,99 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 @media (max-width: 420px) {
   .bgt-line-input { width: 80px; font-size: 12px; }
 }
+
+/* ===== Budget charts ===== */
+.bgt-charts-card {
+  margin-bottom: 6px;
+}
+.bgt-charts-title {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--text-tertiary);
+  margin-bottom: 14px;
+}
+.bgt-charts-wrap {
+  display: flex; align-items: flex-start; gap: 18px;
+}
+.bgt-donut-stage {
+  position: relative; flex: none;
+  width: 120px; height: 120px;
+}
+.bgt-donut-svg {
+  width: 120px; height: 120px;
+}
+.bgt-donut-svg path { cursor: pointer; transition: opacity 0.15s; }
+.bgt-donut-svg:hover path { opacity: 0.4; }
+.bgt-donut-svg path:hover { opacity: 1 !important; }
+.bgt-donut-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.bgt-donut-center-num {
+  font-size: 13px; font-weight: 700;
+  color: var(--text-primary); line-height: 1.1; text-align: center;
+}
+.bgt-donut-center-sub {
+  font-size: 9px; color: var(--text-tertiary);
+  text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px;
+}
+.bgt-legend {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 6px;
+  justify-content: center;
+}
+.bgt-legend-item {
+  display: flex; align-items: center; gap: 7px; min-width: 0;
+}
+.bgt-legend-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex: none;
+}
+.bgt-legend-name {
+  font-size: 11.5px; color: var(--text-secondary);
+  flex: 1; min-width: 0; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.bgt-legend-amt {
+  font-size: 11.5px; color: var(--text-primary);
+  font-variant-numeric: tabular-nums; font-family: var(--font-mono);
+  flex: none;
+}
+.bgt-legend-pct {
+  font-size: 10px; color: var(--text-tertiary);
+  flex: none; min-width: 30px; text-align: right;
+}
+
+/* Category bars card */
+.bgt-bars-card { margin-bottom: 6px; }
+.bgt-bar-row {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+}
+.bgt-bar-row:last-child { margin-bottom: 0; }
+.bgt-bar-icon { font-size: 13px; flex: none; width: 20px; text-align: center; }
+.bgt-bar-name {
+  font-size: 11px; color: var(--text-secondary);
+  width: 100px; flex: none; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.bgt-bar-track {
+  flex: 1; height: 5px; border-radius: 99px;
+  background: rgba(255,255,255,0.07); overflow: hidden;
+}
+.bgt-bar-fill { height: 100%; border-radius: 99px; transition: width 0.35s; }
+.bgt-bar-pct {
+  font-size: 10px; color: var(--text-tertiary);
+  width: 32px; text-align: right; flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 380px) {
+  .bgt-donut-stage { width: 100px; height: 100px; }
+  .bgt-donut-svg   { width: 100px; height: 100px; }
+  .bgt-legend { gap: 5px; }
+  .bgt-legend-name { font-size: 10.5px; }
+  .bgt-bar-name { width: 80px; }
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 <script src="sync.js" defer></script>
@@ -2439,6 +2532,9 @@ input[type="date"]::-webkit-calendar-picker-indicator {
       <span class="bgt-remaining-val" id="bgtRemainingVal">$0</span>
     </div>
   </div>
+
+  <!-- Charts rendered by JS -->
+  <div id="bgtCharts"></div>
 
   <!-- Groups rendered by JS into #bgtGroups -->
   <div id="bgtGroups"></div>
@@ -4696,6 +4792,126 @@ input[type="date"]::-webkit-calendar-picker-indicator {
       if (sel) sel.value = data._currency || 'USD';
 
       updateBgtSummary(data);
+      renderBudgetCharts(data);
+    }
+
+    const BGT_CAT_COLORS = {
+      housing:       '#7DC8F7',
+      food:          '#FB923C',
+      transport:     '#FCD34D',
+      health:        '#4ADE80',
+      personal:      '#C084FC',
+      subscriptions: '#F472B6',
+      family:        '#86EFAC',
+      entertainment: '#F87171',
+      education:     '#60A5FA',
+      debt:          '#FF6B6B',
+      giving:        '#FBBF24',
+      savings:       '#6BE3A4'
+    };
+
+    function bgtArcPath(cx, cy, ro, ri, a1, a2) {
+      var x1o = cx + ro * Math.cos(a1), y1o = cy + ro * Math.sin(a1);
+      var x2o = cx + ro * Math.cos(a2), y2o = cy + ro * Math.sin(a2);
+      var x1i = cx + ri * Math.cos(a2), y1i = cy + ri * Math.sin(a2);
+      var x2i = cx + ri * Math.cos(a1), y2i = cy + ri * Math.sin(a1);
+      var lg = (a2 - a1) > Math.PI ? 1 : 0;
+      return 'M' + x1o.toFixed(2) + ' ' + y1o.toFixed(2)
+        + ' A' + ro + ' ' + ro + ' 0 ' + lg + ' 1 ' + x2o.toFixed(2) + ' ' + y2o.toFixed(2)
+        + ' L' + x1i.toFixed(2) + ' ' + y1i.toFixed(2)
+        + ' A' + ri + ' ' + ri + ' 0 ' + lg + ' 0 ' + x2i.toFixed(2) + ' ' + y2i.toFixed(2)
+        + ' Z';
+    }
+
+    function renderBudgetCharts(data) {
+      var container = document.getElementById('bgtCharts');
+      if (!container) return;
+
+      var sym = CURRENCY_SYMBOLS[data._currency || 'USD'] || '$';
+      var totalIncome = 0;
+      SCHEMA.forEach(function(g) { if (g.type === 'income') totalIncome += groupTotal(data, g); });
+
+      // Build slices: one per non-income group that has a nonzero total
+      var slices = [];
+      SCHEMA.forEach(function(g) {
+        if (g.type === 'income') return;
+        var t = groupTotal(data, g);
+        if (t > 0) slices.push({ group: g.group, label: g.label, icon: g.icon, value: t, color: BGT_CAT_COLORS[g.group] || '#888' });
+      });
+      slices.sort(function(a, b) { return b.value - a.value; });
+
+      var sliceTotal = slices.reduce(function(s, x) { return s + x.value; }, 0);
+
+      // ---- Donut chart ----
+      var cx = 60, cy = 60, ro = 54, ri = 36;
+      var svgPaths = '';
+      if (sliceTotal > 0) {
+        var angle = -Math.PI / 2;
+        slices.forEach(function(sl) {
+          var sweep = (sl.value / sliceTotal) * 2 * Math.PI;
+          if (sweep < 0.01) return;
+          var end = angle + sweep;
+          svgPaths += '<path d="' + bgtArcPath(cx, cy, ro, ri, angle, end) + '" fill="' + sl.color + '" opacity="0.88"/>';
+          angle = end;
+        });
+      } else {
+        svgPaths = '<circle cx="60" cy="60" r="' + ro + '" fill="rgba(255,255,255,0.04)"/>';
+      }
+      var centerNum = sliceTotal > 0 ? fmtBgt(sliceTotal, sym) : '—';
+
+      // ---- Legend ----
+      var legendHtml = '';
+      var maxLegend = slices.length > 0 ? slices : [{ label: 'No data yet', icon: '', color: '#555', value: 0 }];
+      maxLegend.slice(0, 8).forEach(function(sl) {
+        var pct = totalIncome > 0 ? Math.round((sl.value / totalIncome) * 100) : 0;
+        legendHtml += '<div class="bgt-legend-item">'
+          + '<div class="bgt-legend-dot" style="background:' + sl.color + '"></div>'
+          + '<span class="bgt-legend-name">' + sl.label + '</span>'
+          + '<span class="bgt-legend-amt">' + fmtBgt(sl.value, sym) + '</span>'
+          + '<span class="bgt-legend-pct">' + (sl.value > 0 ? pct + '%' : '') + '</span>'
+          + '</div>';
+      });
+      if (slices.length > 8) {
+        var rest = slices.slice(8).reduce(function(s, x) { return s + x.value; }, 0);
+        legendHtml += '<div class="bgt-legend-item">'
+          + '<div class="bgt-legend-dot" style="background:#666"></div>'
+          + '<span class="bgt-legend-name">Other (' + (slices.length - 8) + ')</span>'
+          + '<span class="bgt-legend-amt">' + fmtBgt(rest, sym) + '</span>'
+          + '</div>';
+      }
+
+      // ---- Category bars ----
+      var barsHtml = '';
+      SCHEMA.forEach(function(g) {
+        if (g.type === 'income') return;
+        var t = groupTotal(data, g);
+        var pct = totalIncome > 0 ? Math.min(100, (t / totalIncome) * 100) : 0;
+        var color = BGT_CAT_COLORS[g.group] || '#888';
+        barsHtml += '<div class="bgt-bar-row">'
+          + '<span class="bgt-bar-icon">' + g.icon + '</span>'
+          + '<span class="bgt-bar-name">' + g.label + '</span>'
+          + '<div class="bgt-bar-track"><div class="bgt-bar-fill" style="width:' + pct.toFixed(1) + '%;background:' + color + '"></div></div>'
+          + '<span class="bgt-bar-pct">' + (pct > 0 ? pct.toFixed(0) + '%' : '') + '</span>'
+          + '</div>';
+      });
+
+      container.innerHTML =
+        '<div class="card bgt-charts-card">'
+        + '<div class="bgt-charts-title">Spending Breakdown</div>'
+        + '<div class="bgt-charts-wrap">'
+        + '<div class="bgt-donut-stage">'
+        + '<svg class="bgt-donut-svg" viewBox="0 0 120 120" aria-hidden="true">' + svgPaths + '</svg>'
+        + '<div class="bgt-donut-center">'
+        + '<div class="bgt-donut-center-num">' + centerNum + '</div>'
+        + '<div class="bgt-donut-center-sub">spending</div>'
+        + '</div></div>'
+        + '<div class="bgt-legend">' + legendHtml + '</div>'
+        + '</div>'
+        + '</div>'
+        + '<div class="card bgt-bars-card">'
+        + '<div class="bgt-charts-title">% of Income by Category</div>'
+        + barsHtml
+        + '</div>';
     }
 
     var bgtSaveTimer;
@@ -4710,6 +4926,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
         data[g][k] = parseFloat(inp.value) || 0;
         saveBgt(data);
         updateBgtSummary(data);
+        renderBudgetCharts(data);
       }, 150);
     });
 
