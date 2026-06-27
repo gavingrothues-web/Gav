@@ -4013,7 +4013,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
         }
       } catch (e) {
         pending.classList.remove('nova-msg-loading');
-        pending.textContent = '⚠ ' + ((e && e.message) || “Couldn't reach Nova.”);
+        pending.textContent = '⚠ ' + ((e && e.message) || "Couldn't reach Nova.");
       } finally {
         sendBtn.disabled = false;
         messagesEl.scrollTop = messagesEl.scrollHeight;
