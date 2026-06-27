@@ -1842,6 +1842,23 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 </head>
 <body>
 
+<!-- Diagnostic: proves JS runs and which element receives the first click. Remove once confirmed working. -->
+<script>
+(function(){
+  var pill = document.createElement('div');
+  pill.id = 'dbg-pill';
+  pill.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);background:#6BE3A4;color:#050506;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;z-index:9999;pointer-events:none;white-space:nowrap;';
+  pill.textContent = 'JS running';
+  document.body.appendChild(pill);
+  document.addEventListener('click', function(e){
+    pill.textContent = 'clicked: ' + (e.target.id || e.target.className || e.target.tagName);
+  }, true);
+  document.addEventListener('touchend', function(e){
+    pill.textContent = 'touch: ' + (e.target.id || e.target.className || e.target.tagName);
+  }, true);
+})();
+</script>
+
 <!-- ===== Vitality atmospheric backdrop (aurora · mountains · particles) ===== -->
 <div id="vty-backdrop" aria-hidden="true">
   <div class="vty-atmosphere"></div>
@@ -2288,23 +2305,23 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 <!-- ===== BOTTOM TAB BAR ===== -->
 <nav class="bottom-tabs" id="bottomTabs" aria-label="Sections">
-  <button class="bot-tab active" data-tab="net">
+  <button class="bot-tab active" data-tab="net" onclick="window._finTab&&window._finTab('net')">
     <span class="bot-tab-icon">📊</span>
     <span class="bot-tab-label">Net Worth</span>
   </button>
-  <button class="bot-tab" data-tab="subs">
+  <button class="bot-tab" data-tab="subs" onclick="window._finTab&&window._finTab('subs')">
     <span class="bot-tab-icon">🔁</span>
     <span class="bot-tab-label">Subs</span>
   </button>
-  <button class="bot-tab" data-tab="incoming">
+  <button class="bot-tab" data-tab="incoming" onclick="window._finTab&&window._finTab('incoming')">
     <span class="bot-tab-icon">📦</span>
     <span class="bot-tab-label">Orders</span>
   </button>
-  <button class="bot-tab" data-tab="wish">
+  <button class="bot-tab" data-tab="wish" onclick="window._finTab&&window._finTab('wish')">
     <span class="bot-tab-icon">🎯</span>
     <span class="bot-tab-label">Wishlist</span>
   </button>
-  <button class="bot-tab" data-tab="nova">
+  <button class="bot-tab" data-tab="nova" onclick="window._finTab&&window._finTab('nova')">
     <span class="bot-tab-icon">✨</span>
     <span class="bot-tab-label">Nova</span>
   </button>
@@ -2418,6 +2435,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     storeSet(TAB_KEY, name);
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
+  window._finTab = setActiveTab;
   // Event delegation — one listener on the nav handles all tab buttons,
   // including clicks that land on a child <span> icon/label.
   const bottomTabsNav = document.getElementById('bottomTabs');
