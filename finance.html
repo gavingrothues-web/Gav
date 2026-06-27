@@ -220,6 +220,7 @@ body::after {
   position: fixed;
   bottom: 0; left: 0; right: 0;
   z-index: 100;
+  pointer-events: all !important;
   display: flex;
   justify-content: center;
   gap: 4px;
@@ -246,6 +247,7 @@ body::after {
   border-radius: 12px;
   font-family: inherit;
   cursor: pointer;
+  pointer-events: all !important;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
@@ -1834,8 +1836,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .sub-auto-toggle { width: 100%; justify-content: space-between; padding: 12px 14px; }
 }
 </style>
-<script src="lock.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
 </head>
@@ -2417,7 +2418,19 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     storeSet(TAB_KEY, name);
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
-  tabs.forEach(b => b.addEventListener('click', () => setActiveTab(b.dataset.tab)));
+  // Event delegation — one listener on the nav handles all tab buttons,
+  // including clicks that land on a child <span> icon/label.
+  const bottomTabsNav = document.getElementById('bottomTabs');
+  if (bottomTabsNav) {
+    bottomTabsNav.addEventListener('click', function(e) {
+      const btn = e.target.closest('[data-tab]');
+      if (btn) setActiveTab(btn.dataset.tab);
+    });
+    bottomTabsNav.addEventListener('touchend', function(e) {
+      const btn = e.target.closest('[data-tab]');
+      if (btn) { e.preventDefault(); setActiveTab(btn.dataset.tab); }
+    }, { passive: false });
+  }
   const savedTab = storeGet(TAB_KEY);
   setActiveTab(savedTab && ['net','subs','incoming','wish','nova'].includes(savedTab) ? savedTab : 'net');
 
