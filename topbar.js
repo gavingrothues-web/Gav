@@ -341,7 +341,7 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
     const btn = document.getElementById('topbarWaterAdd');
     if (btn) btn.addEventListener('click', (e) => { e.preventDefault(); addWater(); });
     render();
-    lockGestures();
+    if (shouldShowChrome()) lockGestures();
     startModalLock();
     window.addEventListener('storage', render);
     window.addEventListener('focus', render);
