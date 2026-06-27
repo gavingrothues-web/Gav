@@ -1835,6 +1835,94 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 @media (max-width: 600px) {
   .sub-auto-toggle { width: 100%; justify-content: space-between; padding: 12px 14px; }
 }
+
+/* ===== Budget ===== */
+.bgt-summary {
+  margin-bottom: 6px;
+}
+.bgt-summary-income-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 10px;
+}
+.bgt-summary-income-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.10em;
+  font-weight: 700; color: var(--text-tertiary);
+}
+.bgt-summary-income-val {
+  font-size: 28px; font-weight: 700; color: var(--text-primary); line-height: 1;
+}
+.bgt-summary-bar-wrap {
+  height: 6px; border-radius: 99px; background: rgba(255,255,255,0.07);
+  overflow: hidden; margin-bottom: 14px; display: flex;
+}
+.bgt-summary-bar-exp  { height: 100%; background: #E07658; transition: width 0.3s; }
+.bgt-summary-bar-save { height: 100%; background: #6BE3A4; transition: width 0.3s; }
+.bgt-summary-pills {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px;
+}
+.bgt-pill {
+  background: rgba(255,255,255,0.04); border-radius: 10px;
+  padding: 9px 10px; text-align: center;
+}
+.bgt-pill-label {
+  font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.09em;
+  color: var(--text-tertiary); font-weight: 700; margin-bottom: 4px;
+}
+.bgt-pill-val { font-size: 14px; font-weight: 700; color: var(--text-secondary); }
+.bgt-pill-val.good { color: #6BE3A4; }
+.bgt-pill-val.bad  { color: #E07658; }
+.bgt-remaining-row {
+  display: flex; justify-content: space-between; align-items: center;
+  border-top: 1px solid rgba(255,255,255,0.07); padding-top: 12px;
+}
+.bgt-remaining-label {
+  font-size: 12px; font-weight: 600; color: var(--text-secondary);
+}
+.bgt-remaining-val {
+  font-size: 20px; font-weight: 700; color: var(--text-primary);
+}
+.bgt-remaining-val.good { color: #6BE3A4; }
+.bgt-remaining-val.bad  { color: #E07658; }
+.bgt-group-hdr {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--text-tertiary);
+  padding: 14px 2px 5px; display: flex; justify-content: space-between;
+  align-items: center;
+}
+.bgt-group-hdr-total {
+  font-size: 12px; font-weight: 600; color: var(--text-secondary); letter-spacing: 0;
+}
+.bgt-group { padding: 4px 0; }
+.bgt-line {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+  gap: 12px;
+}
+.bgt-line:last-child { border-bottom: none; padding-bottom: 4px; }
+.bgt-line:first-child { padding-top: 4px; }
+.bgt-line-label {
+  font-size: 13px; color: var(--text-secondary); flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.bgt-line-input {
+  width: 96px; flex: none;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 8px; padding: 6px 10px;
+  color: var(--text-primary); font-family: var(--font-mono);
+  font-size: 13px; text-align: right; outline: none;
+  -moz-appearance: textfield;
+}
+.bgt-line-input::-webkit-outer-spin-button,
+.bgt-line-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.bgt-line-input:focus { border-color: rgba(107,227,164,0.45); }
+.bgt-currency-select {
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09);
+  color: var(--text-secondary); border-radius: 6px; padding: 4px 6px;
+  font-size: 11px; font-family: inherit; cursor: pointer; margin-bottom: 2px;
+}
+@media (max-width: 420px) {
+  .bgt-line-input { width: 80px; font-size: 12px; }
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
 <script src="sync.js" defer></script>
@@ -1882,7 +1970,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   window._finTab = applyTab;
   function restore() {
     var saved; try { saved = localStorage.getItem('finance_active_tab'); } catch(e) {}
-    applyTab(saved && ['net','subs','incoming','wish','nova'].indexOf(saved) !== -1 ? saved : 'net');
+    applyTab(saved && ['net','subs','incoming','wish','budget','nova'].indexOf(saved) !== -1 ? saved : 'net');
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', restore);
   else restore();
@@ -2308,6 +2396,54 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   </div>
 </div>
 
+<!-- ===== BUDGET ===== -->
+<div class="section" data-section="budget" hidden>
+  <div class="section-title">
+    <span class="section-title-text">BUDGET</span>
+  </div>
+
+  <!-- Summary card -->
+  <div class="card bgt-summary">
+    <div class="bgt-summary-income-row">
+      <div>
+        <div class="bgt-summary-income-label">Monthly Income</div>
+        <div class="bgt-summary-income-val" id="bgtIncomeVal">$0</div>
+      </div>
+      <select id="bgtCurrency" class="bgt-currency-select">
+        <option value="USD">USD</option>
+        <option value="CHF">CHF</option>
+        <option value="EUR">EUR</option>
+        <option value="GBP">GBP</option>
+      </select>
+    </div>
+    <div class="bgt-summary-bar-wrap">
+      <div class="bgt-summary-bar-exp"  id="bgtBarExp"  style="width:0%"></div>
+      <div class="bgt-summary-bar-save" id="bgtBarSave" style="width:0%"></div>
+    </div>
+    <div class="bgt-summary-pills">
+      <div class="bgt-pill">
+        <div class="bgt-pill-label">Expenses</div>
+        <div class="bgt-pill-val" id="bgtExpVal">$0</div>
+      </div>
+      <div class="bgt-pill">
+        <div class="bgt-pill-label">Savings</div>
+        <div class="bgt-pill-val good" id="bgtSaveVal">$0</div>
+      </div>
+      <div class="bgt-pill">
+        <div class="bgt-pill-label">Save rate</div>
+        <div class="bgt-pill-val good" id="bgtSaveRate">0%</div>
+      </div>
+    </div>
+    <div class="bgt-remaining-row">
+      <span class="bgt-remaining-label">Remaining / Unallocated</span>
+      <span class="bgt-remaining-val" id="bgtRemainingVal">$0</span>
+    </div>
+  </div>
+
+  <!-- Groups rendered by JS into #bgtGroups -->
+  <div id="bgtGroups"></div>
+</div>
+
 <!-- ===== NOVA — AI money coach ===== -->
 <div class="section" data-section="nova" hidden>
   <div class="section-title">
@@ -2351,6 +2487,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     <span class="bot-tab-icon">🎯</span>
     <span class="bot-tab-label">Wishlist</span>
   </button>
+  <button class="bot-tab" data-tab="budget" onclick="window._finTab&&window._finTab('budget')">
+    <span class="bot-tab-icon">💰</span>
+    <span class="bot-tab-label">Budget</span>
+  </button>
   <button class="bot-tab" data-tab="nova" onclick="window._finTab&&window._finTab('nova')">
     <span class="bot-tab-icon">✨</span>
     <span class="bot-tab-label">Nova</span>
@@ -2376,7 +2516,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
   var _savedTab = (function(){ try { return localStorage.getItem('finance_active_tab'); } catch(e){ return null; } })();
-  if (!_savedTab || ['net','subs','incoming','wish','nova'].indexOf(_savedTab) === -1) _savedTab = 'net';
+  if (!_savedTab || ['net','subs','incoming','wish','budget','nova'].indexOf(_savedTab) === -1) _savedTab = 'net';
   window._finTab(_savedTab);
 
   // ============================================================
@@ -2475,6 +2615,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   const TAB_KEY = 'finance_active_tab';
   const tabs = document.querySelectorAll('.bot-tab');
   const sections = document.querySelectorAll('.section[data-section]');
+  const _bgtRendered = { done: false };
   function setActiveTab(name) {
     tabs.forEach(b => b.classList.toggle('active', b.dataset.tab === name));
     sections.forEach(s => {
@@ -2483,6 +2624,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     });
     storeSet(TAB_KEY, name);
     window.scrollTo({ top: 0, behavior: 'instant' });
+    if (name === 'budget' && !_bgtRendered.done) {
+      _bgtRendered.done = true;
+      if (window._renderBudget) window._renderBudget();
+    }
   }
   window._finTab = setActiveTab;
   // Event delegation — one listener on the nav handles all tab buttons,
@@ -2499,7 +2644,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     }, { passive: false });
   }
   const savedTab = storeGet(TAB_KEY);
-  setActiveTab(savedTab && ['net','subs','incoming','wish','nova'].includes(savedTab) ? savedTab : 'net');
+  setActiveTab(savedTab && ['net','subs','incoming','wish','budget','nova'].includes(savedTab) ? savedTab : 'net');
 
   // ============================================================
   // NET WORTH (copied from the main dashboard, verbatim logic)
@@ -4367,7 +4512,225 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     discardBtn.addEventListener('click', reset);
   })();
 
-  window._finRender = { renderAllNetWorth, renderSubs, renderOrders, renderWishlist };
+  // ============================================================
+  // BUDGET — monthly income / expense / savings planner
+  // ============================================================
+  (function () {
+    const CURRENCY_SYMBOLS = { USD: '$', CHF: 'Fr', EUR: '€', GBP: '£' };
+
+    const SCHEMA = [
+      { group: 'income', label: 'Income', icon: '💵', type: 'income', items: [
+        { key: 'salary',    label: 'Salary / Wages' },
+        { key: 'freelance', label: 'Freelance / Side Income' },
+        { key: 'rental',    label: 'Rental Income' },
+        { key: 'dividends', label: 'Dividends & Interest' },
+        { key: 'other',     label: 'Other Income' }
+      ]},
+      { group: 'housing', label: 'Housing', icon: '🏠', type: 'expense', items: [
+        { key: 'rent',        label: 'Rent / Mortgage' },
+        { key: 'electricity', label: 'Electricity' },
+        { key: 'water_gas',   label: 'Water & Gas' },
+        { key: 'internet',    label: 'Internet' },
+        { key: 'phone',       label: 'Phone / Mobile' },
+        { key: 'home_ins',    label: 'Home Insurance' },
+        { key: 'maintenance', label: 'Maintenance & Repairs' }
+      ]},
+      { group: 'food', label: 'Food & Drink', icon: '🍽', type: 'expense', items: [
+        { key: 'groceries',   label: 'Groceries' },
+        { key: 'restaurants', label: 'Restaurants & Takeout' },
+        { key: 'coffee',      label: 'Coffee & Cafes' }
+      ]},
+      { group: 'transport', label: 'Transport', icon: '🚗', type: 'expense', items: [
+        { key: 'car_payment', label: 'Car Payment / Lease' },
+        { key: 'fuel',        label: 'Fuel / Gas' },
+        { key: 'car_ins',     label: 'Car Insurance' },
+        { key: 'transit',     label: 'Public Transit' },
+        { key: 'parking',     label: 'Parking & Tolls' },
+        { key: 'car_maint',   label: 'Car Maintenance' }
+      ]},
+      { group: 'health', label: 'Health & Fitness', icon: '💪', type: 'expense', items: [
+        { key: 'health_ins',    label: 'Health Insurance' },
+        { key: 'gym',           label: 'Gym & Fitness' },
+        { key: 'prescriptions', label: 'Prescriptions' },
+        { key: 'doctor',        label: 'Doctor & Dental' },
+        { key: 'mental',        label: 'Mental Health / Therapy' }
+      ]},
+      { group: 'personal', label: 'Personal', icon: '👤', type: 'expense', items: [
+        { key: 'clothing',      label: 'Clothing & Shoes' },
+        { key: 'personal_care', label: 'Personal Care' },
+        { key: 'haircuts',      label: 'Haircuts & Grooming' }
+      ]},
+      { group: 'subscriptions', label: 'Subscriptions', icon: '📱', type: 'expense', items: [
+        { key: 'streaming', label: 'Streaming (Netflix, Spotify...)' },
+        { key: 'software',  label: 'Software & Apps' },
+        { key: 'news',      label: 'News & Magazines' },
+        { key: 'gaming',    label: 'Gaming' },
+        { key: 'cloud',     label: 'Cloud Storage' }
+      ]},
+      { group: 'family', label: 'Kids & Family', icon: '👨‍👩‍👧', type: 'expense', items: [
+        { key: 'childcare',  label: 'Childcare / Daycare' },
+        { key: 'school',     label: 'School Fees & Supplies' },
+        { key: 'kids_act',   label: 'Kids Activities' },
+        { key: 'allowance',  label: 'Allowance' }
+      ]},
+      { group: 'entertainment', label: 'Entertainment', icon: '🎬', type: 'expense', items: [
+        { key: 'hobbies',    label: 'Hobbies' },
+        { key: 'events',     label: 'Events & Concerts' },
+        { key: 'travel',     label: 'Travel & Vacation' },
+        { key: 'dining_out', label: 'Dining & Bars' }
+      ]},
+      { group: 'education', label: 'Education', icon: '📚', type: 'expense', items: [
+        { key: 'courses',      label: 'Courses & Books' },
+        { key: 'student_loan', label: 'Student Loan Payment' }
+      ]},
+      { group: 'debt', label: 'Debt Payments', icon: '💳', type: 'expense', items: [
+        { key: 'credit_card',   label: 'Credit Card (minimum)' },
+        { key: 'personal_loan', label: 'Personal Loan' },
+        { key: 'other_debt',    label: 'Other Debt' }
+      ]},
+      { group: 'giving', label: 'Giving', icon: '❤️', type: 'expense', items: [
+        { key: 'donations', label: 'Charitable Donations' },
+        { key: 'gifts',     label: 'Gifts' }
+      ]},
+      { group: 'savings', label: 'Savings & Investing', icon: '📈', type: 'savings', items: [
+        { key: 'emergency',   label: 'Emergency Fund' },
+        { key: 'retirement',  label: 'Retirement (401k / Pension)' },
+        { key: 'index_funds', label: 'Index Funds / Stocks' },
+        { key: 'crypto',      label: 'Crypto' },
+        { key: 'gen_savings', label: 'General Savings' },
+        { key: 'house_fund',  label: 'House / Down Payment Fund' }
+      ]}
+    ];
+
+    function loadBgt() {
+      try { return JSON.parse(localStorage.getItem('budget') || '{}'); } catch(e) { return {}; }
+    }
+    function saveBgt(data) {
+      try { localStorage.setItem('budget', JSON.stringify(data)); } catch(e) {}
+    }
+    function bgtVal(data, group, key) {
+      return parseFloat(((data[group] || {})[key]) || 0) || 0;
+    }
+    function groupTotal(data, g) {
+      return g.items.reduce(function(s, it) { return s + bgtVal(data, g.group, it.key); }, 0);
+    }
+    function fmtBgt(n, sym) {
+      if (n === 0) return sym + '0';
+      return sym + Math.round(n).toLocaleString();
+    }
+
+    function updateBgtSummary(data) {
+      var sym = CURRENCY_SYMBOLS[data._currency || 'USD'] || '$';
+      var totalIncome = 0, totalExp = 0, totalSave = 0;
+      SCHEMA.forEach(function(g) {
+        var t = groupTotal(data, g);
+        if (g.type === 'income') totalIncome += t;
+        else if (g.type === 'savings') totalSave += t;
+        else totalExp += t;
+      });
+      var remaining = totalIncome - totalExp - totalSave;
+      var saveRate = totalIncome > 0 ? Math.round((totalSave / totalIncome) * 100) : 0;
+
+      var incomeEl   = document.getElementById('bgtIncomeVal');
+      var expEl      = document.getElementById('bgtExpVal');
+      var saveEl     = document.getElementById('bgtSaveVal');
+      var saveRateEl = document.getElementById('bgtSaveRate');
+      var remEl      = document.getElementById('bgtRemainingVal');
+      var barExp     = document.getElementById('bgtBarExp');
+      var barSave    = document.getElementById('bgtBarSave');
+      if (!incomeEl) return;
+
+      incomeEl.textContent   = fmtBgt(totalIncome, sym);
+      expEl.textContent      = fmtBgt(totalExp, sym);
+      saveEl.textContent     = fmtBgt(totalSave, sym);
+      saveRateEl.textContent = saveRate + '%';
+      remEl.textContent      = (remaining < 0 ? '-' : '') + fmtBgt(Math.abs(remaining), sym);
+      remEl.className = 'bgt-remaining-val ' + (remaining >= 0 ? 'good' : 'bad');
+
+      if (totalIncome > 0) {
+        var expPct  = Math.min(100, (totalExp / totalIncome) * 100);
+        var savePct = Math.min(100 - expPct, (totalSave / totalIncome) * 100);
+        barExp.style.width  = expPct + '%';
+        barSave.style.width = savePct + '%';
+      } else {
+        barExp.style.width  = '0%';
+        barSave.style.width = '0%';
+      }
+
+      SCHEMA.forEach(function(g) {
+        var el = document.getElementById('bgtHdrTotal-' + g.group);
+        if (el) el.textContent = fmtBgt(groupTotal(data, g), sym);
+      });
+    }
+
+    function renderBudget() {
+      var container = document.getElementById('bgtGroups');
+      if (!container) return;
+      var data = loadBgt();
+      var sym = CURRENCY_SYMBOLS[data._currency || 'USD'] || '$';
+
+      var html = '';
+      SCHEMA.forEach(function(g) {
+        var tot = groupTotal(data, g);
+        html += '<div class="bgt-group-hdr">'
+          + '<span>' + g.icon + ' ' + g.label.toUpperCase() + '</span>'
+          + '<span class="bgt-group-hdr-total" id="bgtHdrTotal-' + g.group + '">'
+          + fmtBgt(tot, sym) + '</span>'
+          + '</div>'
+          + '<div class="card bgt-group">';
+        g.items.forEach(function(it) {
+          var v = bgtVal(data, g.group, it.key);
+          html += '<div class="bgt-line">'
+            + '<label class="bgt-line-label" for="bgt-' + g.group + '-' + it.key + '">' + it.label + '</label>'
+            + '<input class="bgt-line-input" id="bgt-' + g.group + '-' + it.key + '"'
+            + ' type="number" min="0" step="1"'
+            + ' data-group="' + g.group + '" data-key="' + it.key + '"'
+            + ' value="' + (v || '') + '" placeholder="0">'
+            + '</div>';
+        });
+        html += '</div>';
+      });
+      container.innerHTML = html;
+
+      var sel = document.getElementById('bgtCurrency');
+      if (sel) sel.value = data._currency || 'USD';
+
+      updateBgtSummary(data);
+    }
+
+    var bgtSaveTimer;
+    document.addEventListener('input', function(e) {
+      if (!e.target.classList.contains('bgt-line-input')) return;
+      var inp = e.target;
+      clearTimeout(bgtSaveTimer);
+      bgtSaveTimer = setTimeout(function() {
+        var data = loadBgt();
+        var g = inp.dataset.group, k = inp.dataset.key;
+        if (!data[g]) data[g] = {};
+        data[g][k] = parseFloat(inp.value) || 0;
+        saveBgt(data);
+        updateBgtSummary(data);
+      }, 150);
+    });
+
+    document.addEventListener('change', function(e) {
+      if (e.target.id !== 'bgtCurrency') return;
+      var data = loadBgt();
+      data._currency = e.target.value;
+      saveBgt(data);
+      renderBudget();
+    });
+
+    window._renderBudget = renderBudget;
+  })();
+
+  window._finRender = {
+    renderAllNetWorth,
+    renderSubs,
+    renderOrders,
+    renderWishlist,
+    renderBudget: function() { if (window._renderBudget) window._renderBudget(); }
+  };
 
 })();
 </script>
@@ -4378,10 +4741,10 @@ document.addEventListener('DOMContentLoaded', function () {
     window.initCloudSync({
       appKey: 'finance',
       syncedPrefixes: ['nw:'],
-      syncedKeys: ['nw_currency', 'subs', 'incoming_orders', 'wishlist'],
+      syncedKeys: ['nw_currency', 'subs', 'incoming_orders', 'wishlist', 'budget'],
       onApplied: function () {
         const r = window._finRender;
-        if (r) { r.renderAllNetWorth(); r.renderSubs(); r.renderOrders(); r.renderWishlist(); }
+        if (r) { r.renderAllNetWorth(); r.renderSubs(); r.renderOrders(); r.renderWishlist(); r.renderBudget(); }
       }
     });
   }
